@@ -133,10 +133,7 @@ fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
             ast::Located {
                 location: _,
                 ref node,
-            } => {
-                let expression_type = extract_expression_type(node);
-                expression_types.push(expression_type);
-            }
+            } => expression_types.push(extract_expression_type(node)),
         }
     }
     Statement::<Python>::List {
