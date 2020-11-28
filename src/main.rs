@@ -4,6 +4,12 @@ use rustpython_parser::ast;
 use rustpython_parser::parser;
 
 pub struct Python {}
+pub struct Rust {}
+
+pub struct Dragoman<T,U>(T,U);
+
+#[derive(PartialEq)]
+pub struct PhantomTuple<A, B>(A,std::marker::PhantomData<B>);
 
 lazy_static! {
     static ref IDENTIFIER_MAP: std::collections::HashMap<String, &'static str> =
@@ -12,11 +18,11 @@ lazy_static! {
             .collect();
 }
 
-fn extract_type_string(value: &ast::StringGroup) -> ExpressionType<Python> {
+fn extract_type_string(value: &ast::StringGroup) -> ExpressionType<Python,Rust> {
     match value {
-        ast::StringGroup::Constant { ref value } => ExpressionType::<Python>::String {
+        ast::StringGroup::Constant { ref value } => ExpressionType::<Python,Rust>::String {
             value: value.to_string(),
-            phantom: std::marker::PhantomData,
+            phantom: PhantomTuple(Python{}, std::marker::PhantomData),
         },
         _ => unimplemented!(),
     }
@@ -24,22 +30,22 @@ fn extract_type_string(value: &ast::StringGroup) -> ExpressionType<Python> {
 
 // A certain type of expression.
 #[derive(PartialEq)]
-pub enum Statement<T> {
+pub enum Statement<T,U> {
     FunctionCall {
         function_identifier: String,
-        function_args: Vec<ExpressionType<T>>,
+        function_args: Vec<ExpressionType<T,U>>,
     },
 
     List {
-        elements: Vec<ExpressionType<T>>,
+        elements: Vec<ExpressionType<T,U>>,
     },
 }
 
 #[derive(PartialEq)]
-pub enum ExpressionType<T> {
+pub enum ExpressionType<T,U> {
     String {
         value: String,
-        phantom: std::marker::PhantomData<T>,
+         phantom: PhantomTuple<T,U>,
     },
 }
 
@@ -59,10 +65,10 @@ where
     }
 }
 
-impl std::fmt::Display for ExpressionType<Python> {
+impl std::fmt::Display for ExpressionType<Python,Rust> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            ExpressionType::<Python>::String {
+            ExpressionType::<Python,Rust>::String {
                 ref value,
                 phantom: _,
             } => write!(f, r#""{}""#, value),
@@ -72,7 +78,7 @@ impl std::fmt::Display for ExpressionType<Python> {
     }
 }
 
-impl std::fmt::Display for Statement<Python> {
+impl std::fmt::Display for Statement<Python,Rust> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
             Statement::FunctionCall {
@@ -91,7 +97,7 @@ impl std::fmt::Display for Statement<Python> {
     }
 }
 
-fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Statement<Python> {
+fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Statement<Python,Rust> {
     let function = match function {
         ast::Located { location: _, node } => match node {
             ast::ExpressionType::Identifier { ref name } => name,
@@ -109,24 +115,24 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Stat
         }
     }
 
-    Statement::<Python>::FunctionCall {
+    Statement::<Python,Rust>::FunctionCall {
         function_identifier: function.to_owned(),
         function_args: function_args,
     }
 }
 
-trait TranspilerTrait {
-    fn transpile(source: &str) -> String;
-}
+// trait Dragoman<T,U> {
+//     fn transpile(source: &str) -> String;
+// }
 
-fn extract_expression_type(arg: &ast::ExpressionType) -> ExpressionType<Python> {
+fn extract_expression_type(arg: &ast::ExpressionType) -> ExpressionType<Python,Rust> {
     match arg {
         ast::ExpressionType::String { ref value } => extract_type_string(value),
         _ => unimplemented!(),
     }
 }
 
-fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
+fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python,Rust> {
     let mut expression_types = Vec::new();
     for element in elements {
         match element {
@@ -136,12 +142,12 @@ fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
             } => expression_types.push(extract_expression_type(node)),
         }
     }
-    Statement::<Python>::List {
+    Statement::<Python,Rust>::List {
         elements: expression_types,
     }
 }
 
-fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> Statement<Python> {
+fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> Statement<Python,Rust> {
     match expression_type {
         ast::Located { location: _, node } => match node {
             ast::ExpressionType::List { ref elements } => extract_elements(elements),
@@ -156,7 +162,7 @@ fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> St
     }
 }
 
-fn extract_statement(statement: &ast::Statement) -> Statement<Python> {
+fn extract_statement(statement: &ast::Statement) -> Statement<Python,Rust> {
     match statement {
         ast::Statement {
             location: _,
@@ -166,7 +172,7 @@ fn extract_statement(statement: &ast::Statement) -> Statement<Python> {
     }
 }
 
-impl TranspilerTrait for Python {
+impl Dragoman<Python,Rust> {
     fn transpile(source: &str) -> String {
         let mut statements = parser::parse_statement(source).unwrap();
 
@@ -193,7 +199,7 @@ mod tests {
     #[test]
     fn ast_ser_print_hello() {
         let hello_world = r#"print("Hello world")"#;
-        let hello_world_rs = Python::transpile(hello_world);
+        let hello_world_rs = Dragoman::<Python,Rust>::transpile(hello_world);
 
         assert_eq!(hello_world_rs, "println!(\"Hello world\")");
     }
@@ -201,7 +207,7 @@ mod tests {
     #[test]
     fn ast_ser_vec_string() {
         let hello_world = r#"["Apple", "Banana", "Dog"]"#;
-        let hello_world_rs = Python::transpile(hello_world);
+        let hello_world_rs = Dragoman::<Python,Rust>::transpile(hello_world);
 
         assert_eq!(hello_world_rs, r#"vec!["Apple", "Banana", "Dog"]"#);
     }
