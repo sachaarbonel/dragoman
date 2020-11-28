@@ -24,7 +24,7 @@ fn extract_type_string(value: &ast::StringGroup) -> ArgType<Python> {
 
 // A certain type of expression.
 #[derive(PartialEq)]
-pub enum ExpressionType<T> {
+pub enum Statement<T> {
     FunctionCall {
         function_identifier: String,
         function_args: Vec<ArgType<T>>,
@@ -52,10 +52,10 @@ impl std::fmt::Display for ArgType<Python> {
     }
 }
 
-impl std::fmt::Display for ExpressionType<Python> {
+impl std::fmt::Display for Statement<Python> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            ExpressionType::FunctionCall {
+            Statement::FunctionCall {
                 ref function_identifier,
                 function_args,
             } => write!(
@@ -74,7 +74,7 @@ impl std::fmt::Display for ExpressionType<Python> {
     }
 }
 
-fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> ExpressionType<Python> {
+fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Statement<Python> {
     let function = match function {
         ast::Located { location: _, node } => match node {
             ast::ExpressionType::Identifier { ref name } => name,
@@ -89,7 +89,7 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Expr
         },
         _ => unimplemented!(),
     };
-    ExpressionType::<Python>::FunctionCall {
+    Statement::<Python>::FunctionCall {
         function_identifier: function.to_owned(),
         function_args: vec![args],
     }
@@ -101,7 +101,7 @@ trait TranspilerTrait {
 
 fn extract_expression_type(
     expression_type: &ast::Located<ast::ExpressionType>,
-) -> ExpressionType<Python> {
+) -> Statement<Python> {
     match expression_type {
         ast::Located { location: _, node } => match node {
             ast::ExpressionType::Call {
@@ -115,7 +115,7 @@ fn extract_expression_type(
     }
 }
 
-fn extract_statement(statement: &ast::Statement) -> ExpressionType<Python> {
+fn extract_statement(statement: &ast::Statement) -> Statement<Python> {
     match statement {
         ast::Statement {
             location: _,
