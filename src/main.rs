@@ -43,6 +43,22 @@ pub enum ExpressionType<T> {
     },
 }
 
+trait FormatTrait<T> {
+    fn format(&self) -> String;
+}
+
+impl<T> FormatTrait<T> for Vec<T>
+where
+    T: std::string::ToString,
+{
+    fn format(&self) -> String {
+        self.iter()
+            .map(|arg| arg.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    }
+}
+
 impl std::fmt::Display for ExpressionType<Python> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
@@ -66,21 +82,9 @@ impl std::fmt::Display for Statement<Python> {
                 f,
                 "{}({})",
                 IDENTIFIER_MAP[&*function_identifier],
-                function_args
-                    .iter()
-                    .map(|arg| arg.to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
+                function_args.format()
             ),
-            Statement::List { elements } => write!(
-                f,
-                "vec![{}]",
-                elements
-                    .iter()
-                    .map(|arg| arg.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
+            Statement::List { elements } => write!(f, "vec![{}]", elements.format()),
 
             _ => unimplemented!(),
         }
@@ -94,7 +98,6 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Stat
             _ => unimplemented!(),
         },
     };
-    
     let mut function_args = Vec::new();
     for arg in args {
         match arg {
