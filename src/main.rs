@@ -29,10 +29,15 @@ pub enum Statement<T> {
         function_identifier: String,
         function_args: Vec<ArgType<T>>,
     },
+
+    List {
+        elements: Vec<ArgType<T>>,
+    },
 }
 
 #[derive(PartialEq)]
 pub enum ArgType<T> {
+    //rename to literal or something
     String {
         value: String,
         phantom: std::marker::PhantomData<T>,
@@ -68,6 +73,15 @@ impl std::fmt::Display for Statement<Python> {
                     .collect::<Vec<String>>()
                     .join(",")
             ),
+            Statement::List { elements } => write!(
+                f,
+                "vec![{}]",
+                elements
+                    .iter()
+                    .map(|arg| arg.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
 
             _ => unimplemented!(),
         }
@@ -83,10 +97,10 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Stat
     };
     // println!("{}", function);
     let args = match args.as_slice() {
-        [ast::Located { location: _, node }, ..] => match node {
-            ast::ExpressionType::String { ref value } => extract_type_string(value),
-            _ => unimplemented!(),
-        },
+        [ast::Located {
+            location: _,
+            ref node,
+        }, ..] => extract_arg_type(node),
         _ => unimplemented!(),
     };
     Statement::<Python>::FunctionCall {
@@ -99,11 +113,33 @@ trait TranspilerTrait {
     fn transpile(source: &str) -> String;
 }
 
-fn extract_expression(
-    expression_type: &ast::Located<ast::ExpressionType>,
-) -> Statement<Python> {
+fn extract_arg_type(arg: &ast::ExpressionType) -> ArgType<Python> {
+    match arg {
+        ast::ExpressionType::String { ref value } => extract_type_string(value),
+        _ => unimplemented!(),
+    }
+}
+
+fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
+    let mut literals = Vec::new();
+    for element in elements {
+        match element {
+            ast::Located {
+                location: _,
+                ref node,
+            } => {
+                let arg_type = extract_arg_type(node);
+                literals.push(arg_type);
+            }
+        }
+    }
+    Statement::<Python>::List { elements: literals }
+}
+
+fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> Statement<Python> {
     match expression_type {
         ast::Located { location: _, node } => match node {
+            ast::ExpressionType::List { ref elements } => extract_elements(elements),
             ast::ExpressionType::Call {
                 //TODOs: handle other types https://docs.rs/rustpython-parser/0.1.2/src/rustpython_parser/ast.rs.html#179
                 ref function,
@@ -139,7 +175,7 @@ impl TranspilerTrait for Python {
 }
 
 fn main() {
-    let python_source = r#"print("Hello world")"#;
+    let python_source = r#"["Apple", "Banana", "Dog"]"#;
     let func_call = parser::parse_statement(python_source);
     // let func_call = Python::transpile(python_source);
     println!("{:#?}", func_call);
@@ -155,5 +191,13 @@ mod tests {
         let hello_world_rs = Python::transpile(hello_world);
 
         assert_eq!(hello_world_rs, "println!(\"Hello world\")");
+    }
+
+    #[test]
+    fn ast_ser_vec_string() {
+        let hello_world = r#"["Apple", "Banana", "Dog"]"#;
+        let hello_world_rs = Python::transpile(hello_world);
+
+        assert_eq!(hello_world_rs, r#"vec!["Apple", "Banana", "Dog"]"#);
     }
 }
