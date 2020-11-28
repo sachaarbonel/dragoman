@@ -12,9 +12,9 @@ lazy_static! {
             .collect();
 }
 
-fn extract_type_string(value: &ast::StringGroup) -> ArgType<Python> {
+fn extract_type_string(value: &ast::StringGroup) -> ExpressionType<Python> {
     match value {
-        ast::StringGroup::Constant { ref value } => ArgType::<Python>::String {
+        ast::StringGroup::Constant { ref value } => ExpressionType::<Python>::String {
             value: value.to_string(),
             phantom: std::marker::PhantomData,
         },
@@ -27,27 +27,27 @@ fn extract_type_string(value: &ast::StringGroup) -> ArgType<Python> {
 pub enum Statement<T> {
     FunctionCall {
         function_identifier: String,
-        function_args: Vec<ArgType<T>>,
+        function_args: Vec<ExpressionType<T>>,
     },
 
     List {
-        elements: Vec<ArgType<T>>,
+        elements: Vec<ExpressionType<T>>,
     },
 }
 
 #[derive(PartialEq)]
-pub enum ArgType<T> {
-    //rename to literal or something
+pub enum ExpressionType<T> {
+    
     String {
         value: String,
         phantom: std::marker::PhantomData<T>,
     },
 }
 
-impl std::fmt::Display for ArgType<Python> {
+impl std::fmt::Display for ExpressionType<Python> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            ArgType::<Python>::String {
+            ExpressionType::<Python>::String {
                 ref value,
                 phantom: _,
             } => write!(f, r#""{}""#, value),
@@ -100,7 +100,7 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Stat
         [ast::Located {
             location: _,
             ref node,
-        }, ..] => extract_arg_type(node),
+        }, ..] => extract_expression_type(node),
         _ => unimplemented!(),
     };
     Statement::<Python>::FunctionCall {
@@ -113,7 +113,7 @@ trait TranspilerTrait {
     fn transpile(source: &str) -> String;
 }
 
-fn extract_arg_type(arg: &ast::ExpressionType) -> ArgType<Python> {
+fn extract_expression_type(arg: &ast::ExpressionType) -> ExpressionType<Python> {
     match arg {
         ast::ExpressionType::String { ref value } => extract_type_string(value),
         _ => unimplemented!(),
@@ -121,19 +121,19 @@ fn extract_arg_type(arg: &ast::ExpressionType) -> ArgType<Python> {
 }
 
 fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
-    let mut literals = Vec::new();
+    let mut expression_types = Vec::new();
     for element in elements {
         match element {
             ast::Located {
                 location: _,
                 ref node,
             } => {
-                let arg_type = extract_arg_type(node);
-                literals.push(arg_type);
+                let expression_type = extract_expression_type(node);
+                expression_types.push(expression_type);
             }
         }
     }
-    Statement::<Python>::List { elements: literals }
+    Statement::<Python>::List { elements: expression_types }
 }
 
 fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> Statement<Python> {
