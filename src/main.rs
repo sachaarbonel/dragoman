@@ -115,18 +115,27 @@ fn extract_expression_type(
     }
 }
 
+fn extract_statement(statement: &ast::Statement) -> ExpressionType<Python> {
+    match statement {
+        ast::Statement {
+            location: _,
+            node: ast::StatementType::Expression { ref expression },
+        } => extract_expression_type(expression),
+        _ => unimplemented!(),
+    }
+}
+
 impl TranspilerTrait for Python {
     fn transpile(source: &str) -> String {
-        let statement = &parser::parse_statement(source).unwrap()[0];
-        let function_call = match statement {
-            ast::Statement {
-                location: _,
-                node: ast::StatementType::Expression { ref expression },
-            } => extract_expression_type(expression),
-            _ => unimplemented!(),
-        };
-        // let function_call = extract_expression_type(python_ast);
-        function_call.to_string()    }
+        let mut statements = parser::parse_statement(source).unwrap();
+
+        let mut result = Vec::new();
+        while let Some(statement) = statements.pop() {
+            let function_call = extract_statement(&statement);
+            result.push(function_call.to_string());
+        }
+        result.join("\n")
+    }
 }
 
 fn main() {
