@@ -99,7 +99,7 @@ trait TranspilerTrait {
     fn transpile(source: &str) -> String;
 }
 
-fn extract_expression_type(
+fn extract_expression(
     expression_type: &ast::Located<ast::ExpressionType>,
 ) -> Statement<Python> {
     match expression_type {
@@ -120,7 +120,7 @@ fn extract_statement(statement: &ast::Statement) -> Statement<Python> {
         ast::Statement {
             location: _,
             node: ast::StatementType::Expression { ref expression },
-        } => extract_expression_type(expression),
+        } => extract_expression(expression),
         _ => unimplemented!(),
     }
 }
