@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+use rustpython_parser::ast;
 use rustpython_parser::parser;
 
 pub struct Python {}
@@ -11,9 +12,9 @@ lazy_static! {
             .collect();
 }
 
-fn extract_type_string(value: &rustpython_parser::ast::StringGroup) -> ArgType<Python> {
+fn extract_type_string(value: &ast::StringGroup) -> ArgType<Python> {
     match value {
-        rustpython_parser::ast::StringGroup::Constant { ref value } => ArgType::<Python>::String {
+        ast::StringGroup::Constant { ref value } => ArgType::<Python>::String {
             value: value.to_string(),
             phantom: std::marker::PhantomData,
         },
@@ -73,22 +74,17 @@ impl std::fmt::Display for ExpressionType<Python> {
     }
 }
 
-fn extract_call(
-    function: &rustpython_parser::ast::Expression,
-    args: &Vec<rustpython_parser::ast::Expression>,
-) -> ExpressionType<Python> {
+fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> ExpressionType<Python> {
     let function = match function {
-        rustpython_parser::ast::Located { location: _, node } => match node {
-            rustpython_parser::ast::ExpressionType::Identifier { ref name } => name,
+        ast::Located { location: _, node } => match node {
+            ast::ExpressionType::Identifier { ref name } => name,
             _ => unimplemented!(),
         },
     };
     // println!("{}", function);
     let args = match args.as_slice() {
-        [rustpython_parser::ast::Located { location: _, node }, ..] => match node {
-            rustpython_parser::ast::ExpressionType::String { ref value } => {
-                extract_type_string(value)
-            }
+        [ast::Located { location: _, node }, ..] => match node {
+            ast::ExpressionType::String { ref value } => extract_type_string(value),
             _ => unimplemented!(),
         },
         _ => unimplemented!(),
@@ -103,12 +99,12 @@ trait TranspilerTrait {
     fn transpile(source: &str) -> String;
 }
 
-impl TranspilerTrait for Python {
-fn transpile(source: &str) -> String {
-    let python_ast = parser::parse_expression(source).unwrap();
-    let function_call = match python_ast {
-        rustpython_parser::ast::Located { location: _, node } => match node {
-            rustpython_parser::ast::ExpressionType::Call {
+fn extract_expression_type(
+    expression_type: &ast::Located<ast::ExpressionType>,
+) -> ExpressionType<Python> {
+    match expression_type {
+        ast::Located { location: _, node } => match node {
+            ast::ExpressionType::Call {
                 //TODOs: handle other types https://docs.rs/rustpython-parser/0.1.2/src/rustpython_parser/ast.rs.html#179
                 ref function,
                 ref args,
@@ -116,16 +112,27 @@ fn transpile(source: &str) -> String {
             } => extract_call(function, args),
             _ => unimplemented!(),
         },
-    };
-    function_call.to_string()
-}
+    }
 }
 
-
+impl TranspilerTrait for Python {
+    fn transpile(source: &str) -> String {
+        let statement = &parser::parse_statement(source).unwrap()[0];
+        let function_call = match statement {
+            ast::Statement {
+                location: _,
+                node: ast::StatementType::Expression { ref expression },
+            } => extract_expression_type(expression),
+            _ => unimplemented!(),
+        };
+        // let function_call = extract_expression_type(python_ast);
+        function_call.to_string()    }
+}
 
 fn main() {
     let python_source = r#"print("Hello world")"#;
-    let func_call = Python::transpile(python_source);
+    let func_call = parser::parse_statement(python_source);
+    // let func_call = Python::transpile(python_source);
     println!("{:#?}", func_call);
 }
 
