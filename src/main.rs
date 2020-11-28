@@ -134,7 +134,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ast_ser_hello_world() {
+    fn ast_ser_print_hello() {
         let hello_world = r#"print("Hello world")"#;
         let hello_world_rs = Python::transpile(hello_world);
 
