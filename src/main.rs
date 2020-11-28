@@ -63,7 +63,7 @@ impl std::fmt::Display for ExpressionType<Python> {
                 IDENTIFIER_MAP[&*function_identifier],
                 function_args
                     .iter()
-                    .map(|x| x.to_string())
+                    .map(|arg| arg.to_string())
                     .collect::<Vec<String>>()
                     .join(",")
             ),
