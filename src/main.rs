@@ -37,7 +37,6 @@ pub enum Statement<T> {
 
 #[derive(PartialEq)]
 pub enum ExpressionType<T> {
-    
     String {
         value: String,
         phantom: std::marker::PhantomData<T>,
@@ -95,17 +94,21 @@ fn extract_call(function: &ast::Expression, args: &Vec<ast::Expression>) -> Stat
             _ => unimplemented!(),
         },
     };
-    // println!("{}", function);
-    let args = match args.as_slice() {
-        [ast::Located {
-            location: _,
-            ref node,
-        }, ..] => extract_expression_type(node),
-        _ => unimplemented!(),
-    };
+    
+    let mut function_args = Vec::new();
+    for arg in args {
+        match arg {
+            ast::Located {
+                location: _,
+                ref node,
+            } => function_args.push(extract_expression_type(node)),
+            _ => unimplemented!(),
+        }
+    }
+
     Statement::<Python>::FunctionCall {
         function_identifier: function.to_owned(),
-        function_args: vec![args],
+        function_args: function_args,
     }
 }
 
@@ -133,7 +136,9 @@ fn extract_elements(elements: &Vec<ast::Expression>) -> Statement<Python> {
             }
         }
     }
-    Statement::<Python>::List { elements: expression_types }
+    Statement::<Python>::List {
+        elements: expression_types,
+    }
 }
 
 fn extract_expression(expression_type: &ast::Located<ast::ExpressionType>) -> Statement<Python> {
@@ -167,8 +172,8 @@ impl TranspilerTrait for Python {
 
         let mut result = Vec::new();
         while let Some(statement) = statements.pop() {
-            let function_call = extract_statement(&statement);
-            result.push(function_call.to_string());
+            let statement = extract_statement(&statement);
+            result.push(statement.to_string());
         }
         result.join("\n")
     }
