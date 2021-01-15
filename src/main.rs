@@ -174,12 +174,39 @@ fn extract_expression(
     }
 }
 
+fn extract_assign(
+    targets: &Vec<ast::Located<ast::ExpressionType>>,
+    value: &ast::Located<ast::ExpressionType>,
+) -> Statement<Python, Rust> {
+    let assign_identifier = match targets.first().unwrap() {
+        ast::Located { location: _, node } => match node {
+            ast::ExpressionType::Identifier { name } => name,
+            _ => unimplemented!(),
+        },
+    };
+
+    let value = extract_expression(value);
+
+    Statement::<Python, Rust>::Assign {
+        assign_identifier: assign_identifier.to_string(),
+        value: Box::new(value),
+    }
+}
+
 fn extract_statement(statement: &ast::Statement) -> Statement<Python, Rust> {
     match statement {
         ast::Statement {
             location: _,
             node: ast::StatementType::Expression { ref expression },
         } => extract_expression(expression),
+        ast::Statement {
+            location: _,
+            node:
+                ast::StatementType::Assign {
+                    ref targets,
+                    ref value,
+                },
+        } => extract_assign(targets, value),
         _ => unimplemented!(),
     }
 }
@@ -244,5 +271,13 @@ mod tests {
             r#"let mut things = vec!["Apple", "Banana", "Dog"];"#,
             format!("{}", python_source)
         );
+    }
+
+    #[test]
+    fn ast_ser_asign_string() {
+        let hello_world = r#"things = ["Apple", "Banana", "Dog"]"#;
+        let hello_world_rs = Dragoman::<Python, Rust>::transpile(hello_world);
+
+        assert_eq!(hello_world_rs, r#"let mut things = vec!["Apple", "Banana", "Dog"];"#);
     }
 }
